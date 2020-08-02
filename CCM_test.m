@@ -3,7 +3,7 @@ N = 32;
 s = exp(rand(N,1)*1i*2*pi);
 f = s*s';
 
-ds = 0.001*ones(N,1);
+ds = 0.1*rand(N,1);
 f_new = (s+ds)*(s+ds)';
 
 df = zeros(N,N,N);

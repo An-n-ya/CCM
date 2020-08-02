@@ -2,7 +2,7 @@ clc;clear;
 t0 = cputime;
 Nt = 8;
 Nr = 8;
-N = 20;
+N = 8;
 K = 3;
 sigma_0 = 1;
 sigma_k = [0.5,0.2,0.3];
@@ -14,12 +14,12 @@ theta0 = 15;
 theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 
-end_iter = 800;
+end_iter = 6000;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
 for k = 1:Nt
     for n = 1:N
-        s_init(k,n) = exp(1i * 2 * pi * (n - 1) * (k + n - 1) / N) / sqrt(N * Nt);
+        s_init(k,n) = exp(1i * 2 * pi * (n - 1) * (k + n - 1) / N) ;
     end
 end
 s0 = s_init(:);
@@ -53,7 +53,7 @@ while change > epsilon && iter <= (end_iter)
     
     lambda = trace(P);
     v = 2 * (P - lambda * eye(N*Nt,N*Nt)) * s - z;
-    s = - exp(1i*angle(v)) / sqrt(N * Nt);
+    s = - exp(1i*angle(v)) ;
     
     S = s*s';
     phi_S = phi(S,K,Ak,q,theta,N,Nr);
@@ -66,7 +66,7 @@ while change > epsilon && iter <= (end_iter)
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
     if iter == end_iter || change <= epsilon
-        figure(1)
+        figure(2)
         plot(time(1:iter-1),sinr(1:iter-1));
         xlabel('CPU time(s)');
         ylabel('SINR(dB)')
