@@ -14,6 +14,8 @@ theta0 = 15;
 theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 
+evaluation = 1;
+
 
 for k = 1:Nt
     for n = 1:N
@@ -33,9 +35,9 @@ end
 len_s = N*Nt;
 dss = zeros((len_s)^2,len_s);
 s_horz = [s,zeros(len_s,len_s-1)];
-s_vert = conj(s_horz');
-s_horz = s_horz * (1+1i);
-s_vert = s_vert * (1-1i);
+s_vert = s_horz';%conj(s_horz');
+% s_horz = s_horz * (1+1i);
+% s_vert = s_vert * (1-1i);
 roujia_loop_ans = zeros(len_s^2,len_s);
 roujia_loop_I = eye(len_s);
 roujia_v2 = zeros(len_s,len_s);
@@ -43,7 +45,7 @@ beta = 0.1;
 iterDiff = 1;
 iter = 1;
 epsilon = 1e-5;
-end_iter = 100;
+end_iter = 20;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
 while (iterDiff>epsilon) && (iter <= (end_iter))
@@ -71,15 +73,17 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     last_term = roujia_v2 * roujia_v1;
     df = (first_term + last_term);
     
-    delta_s = 0.01 * rand(len_s,1);
-    s_new = s + delta_s;
-    S_new = s_new*s_new';
-    phi_S_new = phi(S_new,K,Ak,q,theta,N,Nr);
-    f_new = obj_func(s_new,A0,phi_S_new,eye(N*Nr));
-    
-    f_new_d = fPre - delta_s' * df;
-    
-    change_scale = (abs(f_new_d-fPre) - abs(f_new-fPre))/abs(f_new-fPre)
+    if evaluation == 1
+        delta_s = 0.01 * rand(len_s,1);
+        s_new = s + delta_s;
+        S_new = s_new*s_new';
+        phi_S_new = phi(S_new,K,Ak,q,theta,N,Nr);
+        f_new = obj_func(s_new,A0,phi_S_new,eye(N*Nr));
+
+        f_new_d = fPre - delta_s' * df;
+
+        change_scale(iter) = (abs(f_new_d-fPre) - abs(f_new-fPre))/abs(f_new-fPre)
+    end
     
     %step2 project to tangent space
     Proj = df - real(conj(df) .* s) .* s;
@@ -101,9 +105,16 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
+
     if iter == end_iter || iterDiff <= epsilon
         figure(1)
-        plot(time(1:iter-1),sinr(1:iter-1));
+        if evaluation == 1
+            change_scale(:) = (change_scale-min(change_scale))/(max(change_scale)-min(change_scale))*5+34;
+            plot(time(1:iter-1),sinr(1:iter-1),time(1:iter-1),change_scale(1:iter-1));
+        end
+        if evaluation == 0
+            plot(time(1:iter-1),sinr(1:iter-1));
+        end
         xlabel('CPU time(s)');
         ylabel('SINR(dB)')
     end
