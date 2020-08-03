@@ -16,6 +16,10 @@ s_init = zeros(Nt,N);
 
 evaluation = 0;
 
+rho = 0.45;
+sigma = 0.1;
+tau = 0.1;%Armijo parameters
+
 
 for k = 1:Nt
     for n = 1:N
@@ -33,48 +37,27 @@ end
 
 
 len_s = N*Nt;
-dss = zeros(len_s,len_s,len_s);
+dss = zeros(len_s,len_s);
 % s_horz = s_horz * (1+1i);
 % s_vert = s_vert * (1-1i);
-roujia_loop_ans = zeros(len_s^2,len_s);
-roujia_loop_I = eye(len_s);
+roujia_loop_ans = zeros(len_s,len_s);
 roujia_v2 = zeros(len_s,len_s);
 beta = 0.005;
 iterDiff = 1;
 iter = 1;
-epsilon = 1e-12;
-end_iter = 1500;
+epsilon = 1e-15;
+end_iter = 80;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
 func = zeros(end_iter,1);
 while (iterDiff>epsilon) && (iter <= (end_iter))
     %disp(iterDiff);
-    S = s*s';
-    phi_S = phi(S,K,Ak,q,theta,N,Nr);
+    phi_S = phi(s*s',K,Ak,q,theta,N,Nr);
     fPre = obj_func(s,A0,phi_S,eye(N*Nr));
     % step 1 gradient
-    first_term = 2 * (A0' / (phi_S + eye(len_s)) * A0) * s;
-    for k = 1 : len_s
-        dss(:,k,k) = s;
-        dss(k,:,k) = s';
-        dss(k,k,k) = 2 * (real(s(k))+imag(s(k)));
-    end
-    roujia_loop_ans = zeros(len_s,len_s,len_s);
-    for k = 1:K  
-        roujia_loop_1 = Ak(:,:,k);
-        for i = 1:len_s
-            roujia_loop_ans(:,:,i) = roujia_loop_ans(:,:,i) + q(k) * roujia_loop_1* dss(:,:,i) * ctranspose(roujia_loop_1);
-        end
-    end
-    roujia_v1 = (phi_S+eye(len_s)) \ A0 * s;
-    roujia_vec = repmat(ctranspose(roujia_v1),[1,len_s]);
-    roujia_v3 = ctranspose(s) * ctranspose(A0) / (phi_S + eye(len_s));
-    for k = 1:len_s
-        roujia_v2(k,:) = roujia_v3 * roujia_loop_ans(:,:,k);
-    end
-    last_term = roujia_v2 * roujia_v1;
-    df = (first_term + last_term);
+    df = fun_grad( s, A0,phi_S,K,q,Ak );
     
+    % evaluation
     if evaluation == 1
         delta_s = 0.01 * rand(len_s,1);
         s_new = s + delta_s;
@@ -91,14 +74,14 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     Proj = df - real(conj(df) .* s) .* s;
     
     % step 3 gradient decent
-    s = s + beta * Proj;
+    mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
+    s = s + tau * rho^mk * Proj;
     
     % step 4 retraction
     s = s ./ abs(s);
     
-
-    S = s*s';
-    phi_S = phi(S,K,Ak,q,theta,N,Nr);
+    
+    phi_S = phi(s*s',K,Ak,q,theta,N,Nr);
     f = obj_func(s,A0,phi_S,eye(N*Nr));
     iterDiff = norm(f - fPre);
 
