@@ -1,7 +1,7 @@
 clc;clear;
 t0 = cputime;
-Nt = 8;
-Nr = 8;
+Nt = 10;
+Nr = 10;
 N = 8;
 K = 3;
 sigma_0 = 1;
@@ -16,9 +16,9 @@ s_init = zeros(Nt,N);
 
 evaluation = 0;
 
-rho = 0.45;
+rho = 0.85;
 sigma = 0.1;
-tau = 0.1;%Armijo parameters
+tau = 0.3;%Armijo parameters
 
 
 for k = 1:Nt
@@ -46,7 +46,7 @@ beta = 0.005;
 iterDiff = 1;
 iter = 1;
 epsilon = 1e-15;
-end_iter = 80;
+end_iter = 150;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
 func = zeros(end_iter,1);
@@ -93,7 +93,7 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     time(iter) = cputime - t0;
 
     if iter == end_iter || iterDiff <= epsilon
-        figure(1)
+        figure(2)
         if evaluation == 1
             change_scale(:) = (change_scale-min(change_scale))/(max(change_scale)-min(change_scale))*5+34;
             plot(time(1:iter-1),sinr(1:iter-1),time(1:iter-1),change_scale(1:iter-1));

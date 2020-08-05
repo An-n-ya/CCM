@@ -1,7 +1,7 @@
 clc;clear;
 t0 = cputime;
-Nt = 8;
-Nr = 8;
+Nt = 10;
+Nr = 10;
 N = 8;
 K = 3;
 sigma_0 = 1;
@@ -66,7 +66,7 @@ while change > epsilon && iter <= (end_iter)
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
     if iter == end_iter || change <= epsilon
-        figure(2)
+        figure(1)
         plot(time(1:iter-1),sinr(1:iter-1));
         xlabel('CPU time(s)');
         ylabel('SINR(dB)')

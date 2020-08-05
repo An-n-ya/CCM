@@ -24,6 +24,6 @@ function df = fun_grad( s, A0,phi_S,K,q,Ak )
     %roujia_vec = repmat(ctranspose(roujia_v1),[1,len_s]);
     
     last_term = roujia_v2 * roujia_v1;
+    %df = (first_term + last_term)-4*1000*100*s;
     df = (first_term + last_term);
-
 return;
