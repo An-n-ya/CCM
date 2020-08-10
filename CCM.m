@@ -15,6 +15,8 @@ theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 
 evaluation = 0;
+SimiCon = false;
+PAR = true;
 
 rho = 0.85;
 sigma = 0.1;
@@ -33,6 +35,19 @@ A0 = A(theta0,r0,N,Nr,Nt);
 Ak = zeros(N*Nr,N*Nt,K);
 for k = 1:K  
     Ak(:,:,k) = A(theta(k),rk(k),N,Nr,Nt);
+end
+
+%Similarity Constraint
+if SimiCon
+    Simi_epsilon0 = 0.5 / sqrt(N*Nt);
+    Simi_epsilon = sqrt(N*Nt) * Simi_epsilon0;% [0,2]
+    Simi_delta = 2 * acos(1 - Simi_epsilon^2 / 2);
+    Simi_gamma = angle(s) - Simi_delta / 2;
+end
+%Peak-to-Average Constraint
+if PAR
+    PAR_gamma = N;
+    PAR_N = N*Nt;
 end
 
 
@@ -78,7 +93,52 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     s = s + tau * rho^mk * Proj;
     
     % step 4 retraction
-    s = s ./ abs(s);
+    v = s;
+    if SimiCon
+        Simi_phi_opt = zeros(N*Nt,1);
+        Simi_phi = angle(v);
+        for i = 1 : N * Nt
+            theta_low = Simi_gamma(i);
+            theta_high = Simi_gamma(i)+Simi_delta;
+            if theta_low <= (Simi_phi(i)) && theta_high >= (Simi_phi(i))
+                Simi_phi_opt(i) = (Simi_phi(i));
+            elseif abs(angle(v(i)) - theta_high) > abs(angle(v(i)) - theta_low)
+                Simi_phi_opt(i) = theta_low;
+            else
+                Simi_phi_opt(i) = theta_high;
+            end
+        end
+            s =  exp(1i*Simi_phi_opt) ;
+    elseif PAR
+        PAR_m = sum(v~=0);
+        if PAR_m * PAR_gamma <= len_s
+            s(v~=0) = sqrt(PAR_gamma) * exp(1i*angle(v(v~=0)));
+            s(v==0) = sqrt((len_s - PAR_m * PAR_gamma)/(len_s - PAR_m)) * exp(1i*angle(v(v==0)));
+        else
+            PAR_left = 0;
+            PAR_right = sqrt(PAR_gamma)/min(abs(v(v~=0)));
+            PAR_sum = 0;
+            while abs(PAR_sum - PAR_N) > 0.3
+                PAR_mid = PAR_left + (PAR_right - PAR_left) / 2;
+                PAR_beta = PAR_mid;
+                PAR_ind1 = PAR_beta^2 * abs(v).^2 > PAR_gamma;
+                PAR_sum = PAR_beta^2 * sum(abs(v(~PAR_ind1)).^2) + sum(PAR_ind1) * PAR_gamma;
+                if PAR_sum > PAR_N
+                    PAR_right = PAR_mid;
+                elseif PAR_sum < PAR_N
+                    PAR_left = PAR_mid;
+                else
+                    break;
+                end
+            end
+            PAR_ind2 = PAR_beta * abs(v) > PAR_gamma;
+            s(PAR_ind2) = sqrt(PAR_gamma) * exp(1i*angle(v(PAR_ind2)));
+            s(~PAR_ind2) = PAR_beta * abs(v(~PAR_ind2)) .* exp(1i*angle(v(~PAR_ind2)));
+        end       
+    else
+        s = s ./ abs(s);
+    end
+   
     
     
     phi_S = phi(s*s',K,Ak,q,theta,N,Nr);
@@ -88,7 +148,7 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     
     temp = (phi_S + eye(N*Nr));
     filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
-    func(iter) = f;
+    %func(iter) = f;
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
 
