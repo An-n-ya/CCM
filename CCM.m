@@ -16,7 +16,7 @@ s_init = zeros(Nt,N);
 
 evaluation = 0;
 SimiCon = false;
-PAR = true;
+PAR = false;
 
 rho = 0.85;
 sigma = 0.1;
@@ -91,7 +91,7 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     % step 3 gradient decent
     mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
     s = s + tau * rho^mk * Proj;
-    
+    %s = s + 0.01 * df;
     % step 4 retraction
     v = s;
     if SimiCon

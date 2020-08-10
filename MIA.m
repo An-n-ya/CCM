@@ -14,7 +14,7 @@ theta0 = 15;
 theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 SimiCon = false;
-PAR = true;
+PAR = false;
 
 end_iter = 2000;
 sinr = zeros(end_iter,1);
