@@ -15,13 +15,15 @@ theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 SimiCon = false;
 PAR = false;
+e_Uncertain = true;
 
 end_iter = 2000;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
 for k = 1:Nt
     for n = 1:N
-            s_init(k,n) = exp(1i * 2 * pi * (n - 1) * (k + n - 1) / N) ;
+            s_init(k,n) = exp(1i * 2 * ...
+                pi * (n - 1) * (k + n - 1) / N) ;
     end
 end
 s0 = s_init(:);
@@ -47,6 +49,16 @@ end
 if PAR
     PAR_gamma = N;
     PAR_N = N*Nt;
+end
+
+%e-Uncertainty Constant Modulus Constraint 
+if e_Uncertain
+    e_ce2 = N*Nt;
+    e_cm = N;
+    e_e1 = 7.5;
+    e_e2 = 1;
+    assert(N * Nt * (e_cm - e_e1)^2 <= e_ce2...
+        && e_ce2 <= N * Nt * (e_cm + e_e2)^2,'out of range');
 end
 
 len_s = N*Nt;
@@ -75,9 +87,12 @@ while change > epsilon && iter <= (end_iter)
         Simi_phi_opt = zeros(len_s,1);
         Simi_phi = angle(-v);
         for i = 1 : len_s
-            if Simi_gamma(i) < (Simi_phi(i)) && Simi_gamma(i)+Simi_delta > (Simi_phi(i))
+            if Simi_gamma(i) < (Simi_phi(i)) &&...
+                    Simi_gamma(i)+Simi_delta > (Simi_phi(i))
                 Simi_phi_opt(i) = (Simi_phi(i));
-            elseif real(conj(v(i)) * exp(1i * (Simi_gamma(i)+Simi_delta))) > real(conj(v(i)) * exp(1i * Simi_gamma(i)))
+            elseif real(conj(v(i)) * ...
+                    exp(1i * (Simi_gamma(i)+Simi_delta))) >...
+                    real(conj(v(i)) * exp(1i * Simi_gamma(i)))
                 Simi_phi_opt(i) = Simi_gamma(i);
             else
                 Simi_phi_opt(i) = Simi_gamma(i)+Simi_delta;
@@ -88,7 +103,8 @@ while change > epsilon && iter <= (end_iter)
         PAR_m = sum(v~=0);
         if PAR_m * PAR_gamma <= len_s
             s(v~=0) = - sqrt(PAR_gamma) * exp(1i*angle(v(v~=0)));
-            s(v==0) = - sqrt((len_s - PAR_m * PAR_gamma)/(len_s - PAR_m)) * exp(1i*angle(v(v==0)));
+            s(v==0) = - sqrt((len_s - PAR_m * PAR_gamma)/...
+                (len_s - PAR_m)) * exp(1i*angle(v(v==0)));
         else
             PAR_left = 0;
             PAR_right = sqrt(PAR_gamma)/min(abs(v(v~=0)));
@@ -97,7 +113,8 @@ while change > epsilon && iter <= (end_iter)
                 PAR_mid = PAR_left + (PAR_right - PAR_left) / 2;
                 PAR_beta = PAR_mid;
                 PAR_ind1 = PAR_beta^2 * abs(v).^2 > PAR_gamma;
-                PAR_sum = PAR_beta^2 * sum(abs(v(~PAR_ind1)).^2) + sum(PAR_ind1) * PAR_gamma;
+                PAR_sum = PAR_beta^2 * ...
+                    sum(abs(v(~PAR_ind1)).^2) + sum(PAR_ind1) * PAR_gamma;
                 if PAR_sum > PAR_N
                     PAR_right = PAR_mid;
                 elseif PAR_sum < PAR_N
@@ -108,8 +125,47 @@ while change > epsilon && iter <= (end_iter)
             end
             PAR_ind2 = PAR_beta * abs(v) > PAR_gamma;
             s(PAR_ind2) = - sqrt(PAR_gamma) * exp(1i*angle(v(PAR_ind2)));
-            s(~PAR_ind2) = - PAR_beta * abs(v(~PAR_ind2)) .* exp(1i*angle(v(~PAR_ind2)));
+            s(~PAR_ind2) = - PAR_beta * ...
+                abs(v(~PAR_ind2)) .* exp(1i*angle(v(~PAR_ind2)));
         end
+    elseif e_Uncertain
+        e_ind = v~=0;
+        e_m = sum(e_ind);
+        e_plus = (e_cm+e_e2)^2;
+        e_minus = (e_cm-e_e1)^2;
+        if e_m * e_plus + (len_s - e_m) * e_minus <= e_ce2 &&...
+                e_ce2 <= len_s * e_plus
+            s(e_ind) = - (e_cm + e_e2) * exp(1i*angle(v(PAR_ind2)));
+            s(~e_ind) = - sqrt((e_ce2-e_m * e_plus) /...
+                (len_s - e_m)) * exp(1i*angle(v(~PAR_ind2)));
+        elseif len_s * e_minus <= e_ce2 &&...
+                e_ce2 <= e_m * e_plus + (len_s - e_m) * e_minus
+            e_left = (e_cm - e_e1) / max(abs(v(v~=0)));
+            e_right = (e_cm + e_e2) / min(abs(v(v~=0)));
+            e_sum = 0;
+            while abs(e_sum - e_ce2) > 0.5
+                e_mid = e_left + (e_right - e_left) / 2;
+                e_beta = e_mid;
+                e_ind1 = e_beta^2 * abs(v).^2 > e_plus;
+                e_ind2 = e_beta^2 * abs(v).^2 < e_minus;
+                e_sum = e_beta^2 * sum(abs(v(~e_ind1 & ~e_ind2).^2)) +...
+                    sum(e_ind1) * e_plus + sum(e_ind2) * e_minus;
+                if e_sum > e_ce2
+                    e_right = e_mid;
+                elseif e_sum < e_ce2
+                    e_left = e_mid;
+                else
+                    break;
+                end
+            end
+            e_ind1 = e_beta^2 * abs(v).^2 > e_plus;
+            e_ind2 = e_beta^2 * abs(v).^2 < e_minus;
+            e_ind3 = ~e_ind1 & ~e_ind2;
+            s(e_ind3) = - e_beta * abs(v(e_ind3)) .* exp(1i * angle(v(e_ind3)));
+            s(e_ind1) = - (e_cm + e_e2) * exp(1i * angle(v(e_ind1)));
+            s(e_ind2) = - (e_cm - e_e1) * exp(1i * angle(v(e_ind2)));
+        end
+        
     else
         s = - exp(1i*angle(v)) ;
     end

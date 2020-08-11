@@ -14,15 +14,18 @@ theta0 = 15;
 theta = [-50,-10,40];
 s_init = zeros(Nt,N);
 
+% switch mode
 evaluation = 0;
 SimiCon = false;
 PAR = false;
+e_Uncertain = true;
 
+%Armijo parameters
 rho = 0.85;
 sigma = 0.1;
-tau = 0.3;%Armijo parameters
+tau = 0.3;
 
-
+% initial s
 for k = 1:Nt
     for n = 1:N
         s_init(k,n) = exp(1i * 2 * pi * (n - 1) * (k + n - 1) / N);
@@ -48,6 +51,15 @@ end
 if PAR
     PAR_gamma = N;
     PAR_N = N*Nt;
+end
+%e-Uncertainty Constant Modulus Constraint 
+if e_Uncertain
+    e_ce2 = N*Nt;
+    e_cm = N;
+    e_e1 = 7.5;
+    e_e2 = 1;
+    assert(N * Nt * (e_cm - e_e1)^2 <= e_ce2...
+        && e_ce2 <= N * Nt * (e_cm + e_e2)^2,'out of range');
 end
 
 
@@ -97,12 +109,18 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     if SimiCon
         Simi_phi_opt = zeros(N*Nt,1);
         Simi_phi = angle(v);
+%          Simi_ind = (Simi_gamma <= Simi_phi) & ((Simi_gamma+Simi_delta) >= Simi_phi);
+%          Simi_ind2 = ~Simi_ind & abs(wrapToPi(angle(v) - Simi_gamma-Simi_delta)) > abs(wrapToPi(angle(v) - Simi_gamma));
+%          Simi_ind3 = ~Simi_ind & ~Simi_ind2;
+%          Simi_phi_opt(Simi_ind) = Simi_phi(Simi_ind);
+%          Simi_phi_opt(Simi_ind2) = Simi_gamma(Simi_ind2);
+%          Simi_phi_opt(Simi_ind3) = Simi_gamma(Simi_ind3)+Simi_delta;
         for i = 1 : N * Nt
             theta_low = Simi_gamma(i);
             theta_high = Simi_gamma(i)+Simi_delta;
             if theta_low <= (Simi_phi(i)) && theta_high >= (Simi_phi(i))
                 Simi_phi_opt(i) = (Simi_phi(i));
-            elseif abs(angle(v(i)) - theta_high) > abs(angle(v(i)) - theta_low)
+            elseif abs(wrapToPi(angle(v(i)) - theta_high)) > abs(wrapToPi(angle(v(i)) - theta_low))
                 Simi_phi_opt(i) = theta_low;
             else
                 Simi_phi_opt(i) = theta_high;
@@ -134,7 +152,44 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
             PAR_ind2 = PAR_beta * abs(v) > PAR_gamma;
             s(PAR_ind2) = sqrt(PAR_gamma) * exp(1i*angle(v(PAR_ind2)));
             s(~PAR_ind2) = PAR_beta * abs(v(~PAR_ind2)) .* exp(1i*angle(v(~PAR_ind2)));
-        end       
+        end 
+    elseif e_Uncertain
+        e_ind = v~=0;
+        e_m = sum(e_ind);
+        e_plus = (e_cm+e_e2)^2;
+        e_minus = (e_cm-e_e1)^2;
+        if e_m * e_plus + (len_s - e_m) * e_minus <= e_ce2 &&...
+                e_ce2 <= len_s * e_plus
+            s(e_ind) = (e_cm + e_e2) * exp(1i*angle(v(PAR_ind2)));
+            s(~e_ind) = sqrt((e_ce2-e_m * e_plus) /...
+                (len_s - e_m)) * exp(1i*angle(v(~PAR_ind2)));
+        elseif len_s * e_minus <= e_ce2 &&...
+                e_ce2 <= e_m * e_plus + (len_s - e_m) * e_minus
+            e_left = (e_cm - e_e1) / max(abs(v(v~=0)));
+            e_right = (e_cm + e_e2) / min(abs(v(v~=0)));
+            e_sum = 0;
+            while abs(e_sum - e_ce2) > 0.5
+                e_mid = e_left + (e_right - e_left) / 2;
+                e_beta = e_mid;
+                e_ind1 = e_beta^2 * abs(v).^2 > e_plus;
+                e_ind2 = e_beta^2 * abs(v).^2 < e_minus;
+                e_sum = e_beta^2 * sum(abs(v(~e_ind1 & ~e_ind2).^2)) +...
+                    sum(e_ind1) * e_plus + sum(e_ind2) * e_minus;
+                if e_sum > e_ce2
+                    e_right = e_mid;
+                elseif e_sum < e_ce2
+                    e_left = e_mid;
+                else
+                    break;
+                end
+            end
+            e_ind1 = e_beta^2 * abs(v).^2 > e_plus;
+            e_ind2 = e_beta^2 * abs(v).^2 < e_minus;
+            e_ind3 = ~e_ind1 & ~e_ind2;
+            s(e_ind3) = e_beta * abs(v(e_ind3)) .* exp(1i * angle(v(e_ind3)));
+            s(e_ind1) = (e_cm + e_e2) * exp(1i * angle(v(e_ind1)));
+            s(e_ind2) = (e_cm - e_e1) * exp(1i * angle(v(e_ind2)));
+        end
     else
         s = s ./ abs(s);
     end

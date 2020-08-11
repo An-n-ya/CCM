@@ -10,13 +10,15 @@ function df = fun_grad( s, A0,phi_S,K,q,Ak )
     
     roujia_v3 = ctranspose(s) * ctranspose(A0) / (phi_S + eye(len_s));
     for i = 1:len_s
-        dss(:,:) = 0;
-        dss(:,i) = s;%+  conjugate
-        dss(i,:) = s';
-        dss(i,i) = 2 * (real(s(i)));
+%         dss(:,:) = 0;
+%         dss(:,i) = s;%+  conjugate
+%         dss(i,:) = s';
+%         dss(i,i) = 2 * (real(s(i)));
         roujia_loop_ans(:,:) = 0;
         for k = 1:K  
-            roujia_loop_ans = roujia_loop_ans + q(k) * Ak(:,:,k)* dss * Ak(:,:,k)';
+            roujia_acc = repmat(Ak(:,i,k),1,len_s) .* s' * Ak(:,:,k)'; 
+            %roujia_loop_ans = roujia_loop_ans + q(k) * Ak(:,:,k)* dss * Ak(:,:,k)';
+            roujia_loop_ans = roujia_loop_ans + q(k) * (roujia_acc + roujia_acc');
         end
         roujia_v2(i,:) = roujia_v3 * roujia_loop_ans;
     end
