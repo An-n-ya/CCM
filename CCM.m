@@ -16,14 +16,19 @@ s_init = zeros(Nt,N);
 
 % switch mode
 evaluation = 0;
-SimiCon = false;
+SimiCon = true;
 PAR = false;
-e_Uncertain = true;
+e_Uncertain = false;
 
 %Armijo parameters
 rho = 0.85;
 sigma = 0.1;
-tau = 0.3;
+tau = 1;
+if PAR || e_Uncertain
+    rho = 0.85;
+    sigma = 0.1;
+    tau = 0.4;
+end
 
 % initial s
 for k = 1:Nt
@@ -72,7 +77,7 @@ roujia_v2 = zeros(len_s,len_s);
 beta = 0.005;
 iterDiff = 1;
 iter = 1;
-epsilon = 1e-15;
+epsilon = 1e-4;
 end_iter = 150;
 sinr = zeros(end_iter,1);
 time = zeros(end_iter,1);
@@ -83,26 +88,34 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     fPre = obj_func(s,A0,phi_S,eye(N*Nr));
     % step 1 gradient
     df = fun_grad( s, A0,phi_S,K,q,Ak );
-    
-    % evaluation
-    if evaluation == 1
-        delta_s = 0.01 * rand(len_s,1);
-        s_new = s + delta_s;
-        S_new = s_new*s_new';
-        phi_S_new = phi(S_new,K,Ak,q,theta,N,Nr);
-        f_new = obj_func(s_new,A0,phi_S_new,eye(N*Nr));
-
-        f_new_d = fPre + delta_s' * df;
-
-        change_scale(iter) = (abs(f_new_d-fPre) - abs(f_new-fPre))/abs(f_new-fPre)
-    end
-    
+        
     %step2 project to tangent space
     Proj = df - real(conj(df) .* s) .* s;
     
     % step 3 gradient decent
-    mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
-    s = s + tau * rho^mk * Proj;
+     %mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
+     %s = s + tau * rho^mk * Proj;
+     s = s+0.1*Proj;
+    
+    % evaluation
+    if evaluation == 1
+        %delta_s = 0.01 * rand(len_s,1);
+        %s_new = s + delta_s;
+        S_new = s*s';
+        phi_S_new = phi(S_new,K,Ak,q,theta,N,Nr);
+        f_new = obj_func(s,A0,phi_S_new,eye(N*Nr));
+        
+        s_2 = s ./ abs(s);
+        S_2 = s_2*s_2';
+        phi_S_2 = phi(S_2,K,Ak,q,theta,N,Nr);
+        f_2 = obj_func(s_2,A0,phi_S_2,eye(N*Nr));
+        
+        f_new - f_2
+
+        %f_new_d = fPre + delta_s' * df;
+
+        %change_scale(iter) = (abs(f_new_d-fPre) - abs(f_new-fPre))/abs(f_new-fPre)
+    end
     %s = s + 0.01 * df;
     % step 4 retraction
     v = s;
@@ -208,16 +221,32 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     time(iter) = cputime - t0;
 
     if iter == end_iter || iterDiff <= epsilon
-        figure(2)
+        
         if evaluation == 1
             change_scale(:) = (change_scale-min(change_scale))/(max(change_scale)-min(change_scale))*5+34;
             plot(time(1:iter-1),sinr(1:iter-1),time(1:iter-1),change_scale(1:iter-1));
         end
         if evaluation == 0
-            plot(time(1:iter-1),sinr(1:iter-1));
+            figure(1)
+            hold on
+            plot(1:iter-1,sinr(1:iter-1),'b--');
+            xlabel('Iterations');
+            ylabel('SINR(dB)')
+            legend("CCM-Arimijo","CCM")
+            hold off
+            saveas(gcf,'test.eps','psc2')
+            figure(2)
+            hold on
+            plot(time(1:iter-1),sinr(1:iter-1),'b--');
+            xlabel('CPU time(s)');
+            ylabel('SINR(dB)')
+            legend("CCM-Arimijo","CCM")
+            hold off
+            saveas(gcf,'test.eps','psc2')
+            
         end
-        xlabel('CPU time(s)');
-        ylabel('SINR(dB)')
+        %xlabel('CPU time(s)');
+
 %         figure(2)
 %         plot(time(1:iter-1),func(1:iter-1));
     end

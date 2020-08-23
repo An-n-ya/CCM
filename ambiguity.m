@@ -2,16 +2,26 @@ function ambiguity(x,Nt,N,theta_c)
     s = reshape(x,[Nt,N]);
     Ae = zeros(2*N+1,181);
     c = zeros(Nt,Nt,2*N+1);
+    %J = zeros(Nt*N,Nt*N);
     for tau = -N:N
         for t = 1:N
             c(:,:,tau+N+1) = c(:,:,tau+N+1) + s(:,t)*s(:,1+mod((t+tau),N))';
         end
     end
     steer = at(theta_c,Nt);
+    len_x = N*Nt;
     for tau = -N:N
         ind = 1;
         for theta = -90:90
             Ae(tau+N+1,ind)=conj(steer')*c(:,:,tau+N+1)*at(theta,Nt);
+%             for i = 1:len_x
+%                 for j = 1:len_x
+%                     if i - j == tau
+%                         J(i,j) = 1;
+%                     end
+%                 end
+%             end
+            %Ae(tau+N+1,ind)=abs(x' * J * (x .* at(theta,len_x)))^2/(norm(s,2)^2);
             ind = ind + 1;
         end
     end
