@@ -1,4 +1,4 @@
-clc;clear;
+function CCM(mode)
 t0 = cputime;
 Nt = 10;
 Nr = 10;
@@ -16,9 +16,11 @@ s_init = zeros(Nt,N);
 
 % switch mode
 evaluation = 0;
-SimiCon = true;
-PAR = false;
-e_Uncertain = false;
+SimiCon = mode.SimiCon;
+PAR = mode.PAR;
+e_Uncertain = mode.e;
+
+acceleration = mode.acceleration;
 
 %Armijo parameters
 rho = 0.85;
@@ -87,15 +89,18 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     phi_S = phi(s*s',K,Ak,q,theta,N,Nr);
     fPre = obj_func(s,A0,phi_S,eye(N*Nr));
     % step 1 gradient
-    df = fun_grad( s, A0,phi_S,K,q,Ak );
+    df = fun_grad_mex( s, A0,phi_S,K,q,Ak );
         
     %step2 project to tangent space
     Proj = df - real(conj(df) .* s) .* s;
     
     % step 3 gradient decent
-     %mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
-     %s = s + tau * rho^mk * Proj;
-     s = s+0.1*Proj;
+    if acceleration
+         mk = armijo(s, rho, sigma, df,A0,phi_S,eye(N*Nr),K,q,Ak,Proj,tau);
+         s = s + tau * rho^mk * Proj;
+    else
+         s = s+0.1*Proj;
+    end
     
     % evaluation
     if evaluation == 1
@@ -228,21 +233,74 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
         end
         if evaluation == 0
             figure(1)
-            hold on
-            plot(1:iter-1,sinr(1:iter-1),'b--');
-            xlabel('Iterations');
+            if acceleration
+                if mode.log
+                    fig1 = semilogx(1:iter-1,sinr(1:iter-1),'b');
+                    xlabel('log-Iterations');
+                else
+                    fig1 = plot(1:iter-1,sinr(1:iter-1),'b');
+                    xlabel('Iterations');
+                end
+            else
+                hold on
+                if mode.log
+                    fig1 = semilogx(1:iter-1,sinr(1:iter-1),'b--');
+                    xlabel('log-Iterations');
+                else
+                    fig1 = plot(1:iter-1,sinr(1:iter-1),'b--');
+                    xlabel('Iterations');
+                end
+            end
+            
             ylabel('SINR(dB)')
-            legend("CCM-Arimijo","CCM")
             hold off
-            saveas(gcf,'test.eps','psc2')
+            if SimiCon
+                name = 'SimiCon';
+            elseif e_Uncertain
+                name = 'e_Uncertain';
+            elseif PAR
+                name = 'PAR';
+            else
+                name = 'origin';
+            end
+            if mode.log
+                print([name,'_iteration_log'],'-depsc','-painters')
+                print([name,'_iteration_log_png'],'-dpng')
+            else
+                print([name,'_iteration'],'-depsc','-painters')
+                print([name,'_iteration_png'],'-dpng')
+            end
             figure(2)
-            hold on
-            plot(time(1:iter-1),sinr(1:iter-1),'b--');
-            xlabel('CPU time(s)');
+            if acceleration
+                if mode.log
+                    fig2 = semilogx(time(1:iter-1),sinr(1:iter-1),'b');
+                    xlabel('log-CPU time(log(s))');
+                else
+                    fig2 = plot(time(1:iter-1),sinr(1:iter-1),'b');
+                    xlabel('CPU time(s)');
+                end
+            else
+                hold on
+                if mode.log
+                    fig2 = semilogx(time(1:iter-1),sinr(1:iter-1),'b--');
+                    xlabel('log-CPU time(log(s))');
+                else
+                    fig2 = plot(time(1:iter-1),sinr(1:iter-1),'b--');
+                    xlabel('CPU time(s)');
+                end
+                
+            end
+            
             ylabel('SINR(dB)')
-            legend("CCM-Arimijo","CCM")
+
             hold off
-            saveas(gcf,'test.eps','psc2')
+            if mode.log
+                print([name,'_runtime_log'],'-depsc','-painters')
+                print([name,'_runtime_log_png'],'-dpng')
+            else
+                print([name,'_runtime'],'-depsc','-painters')
+                print([name,'_runtime_png'],'-dpng')
+            end
             
         end
         %xlabel('CPU time(s)');
@@ -255,3 +313,10 @@ end
 
 temp = (phi_S + eye(N*Nr));
 filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
+if mode.log
+    save([name,'_CCM_data_log.mat'],'s','sinr','iter','time');
+else
+    save([name,'_CCM_data.mat'],'s','sinr','iter','time');
+end
+clc;clear;
+end

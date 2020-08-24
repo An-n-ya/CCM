@@ -1,4 +1,4 @@
-clc;clear;
+function MIA(mode)
 t0 = cputime;
 Nt = 10;
 Nr = 10;
@@ -16,11 +16,11 @@ s_init = zeros(Nt,N);
 SimiCon = false;
 PAR = false;
 e_Uncertain = false;
-proj.SimiCon.value = true;
-proj.PAR.value = false;
-proj.e.value = false;
+proj.SimiCon.value = mode.SimiCon;
+proj.PAR.value = mode.PAR;
+proj.e.value = mode.e;
 
-acceleration = false;
+acceleration = mode.acceleration;
 
 end_iter = 2000;
 sinr = zeros(end_iter,1);
@@ -117,9 +117,17 @@ while change > epsilon && iter <= (end_iter)
         acc_f = obj_func(acc_res,A0,phi_S,eye(N*Nr));
         
         while real(acc_f) > real(f_k)
+            %if abs(acc_alpha+1)<1e-1 || acc_alpha > -1
+            if abs(acc_alpha+1)<1e-3
+                acc_res = acc_s2;
+                break;
+            end
             acc_alpha = (acc_alpha - 1) / 2;
             acc_res = proj_to(proj,acc_s - 2 * acc_alpha *...
             acc_r + acc_alpha^2 * acc_v);
+            S = acc_res*acc_res';
+            phi_S = phi(S,K,Ak,q,theta,N,Nr);
+            acc_f = obj_func(acc_res,A0,phi_S,eye(N*Nr));
         end
         
         s = acc_res;
@@ -140,23 +148,95 @@ while change > epsilon && iter <= (end_iter)
     if iter == end_iter || change <= epsilon
             figure(1)
             hold on
-            plot(1:100,sinr(1:100),'r:');
-            xlabel('Iterations');
+            if acceleration
+                if mode.log
+                    fig2 = semilogx(1:iter-1,sinr(1:iter-1),'r--');
+                else
+                    fig2 = plot(1:iter-1,sinr(1:iter-1),'r--');
+                end
+            else
+                if mode.log
+                    fig2 = semilogx(1:iter-1,sinr(1:iter-1),'r:');
+                else
+                    if iter<400
+                        fig2 = plot(1:iter-1,sinr(1:iter-1),'r:');
+                    else
+                        fig2 = plot(1:400,sinr(1:400),'r:');
+                    end
+                end
+                legend("CCM-Armijo","MM-SQUAREM","CCM","MM",'location','southeast')
+            end
+            if mode.log
+                xlabel('log-Iterations');
+            else
+                xlabel('Iterations');
+            end
             ylabel('SINR(dB)')
             hold off
-            saveas(gcf,'test.eps','psc2')
+            if proj.SimiCon.value
+                name = 'SimiCon';
+            elseif proj.e.value
+                name = 'e_Uncertain';
+            elseif proj.PAR.value
+                name = 'PAR';
+            else
+                name = 'origin';
+            end
+            if mode.log
+                print([name,'_iteration_log'],'-depsc','-painters')
+                print([name,'_iteration_log_png'],'-dpng')
+            else
+                print([name,'_iteration'],'-depsc','-painters')
+                print([name,'_iteration_png'],'-dpng')
+            end
             figure(2)
             hold on
-            plot(time(1:iter-1),sinr(1:iter-1),'r:');
-            xlabel('CPU time(s)');
-            ylabel('SINR(dB)')
+            if acceleration
+                if mode.log
+                    fig1 = semilogx(time(1:iter-1),sinr(1:iter-1),'r--');
+                else
+                    fig1 = plot(time(1:iter-1),sinr(1:iter-1),'r--');
+                end
+            else
+                if mode.log
+                    fig1 = semilogx(time(1:iter-1),sinr(1:iter-1),'r:');
+                else
+                    if iter < 1000
+                        fig1 = plot(time(1:iter-1),sinr(1:iter-1),'r:');
+                    else
+                        fig1 = plot(time(1:1000),sinr(1:1000),'r:');
+                    end
+                end
+                legend("CCM-Armijo","MM-SQUAREM","CCM","MM",'location','southeast')
+            end
+            if mode.log
+                xlabel('log-CPU time(log(s))');
+            else
+                xlabel('CPU time(s)');
+            end
+            ylabel('SINR(dB)');
             hold off
-            saveas(gcf,'test.eps','psc2')
+            if mode.log
+                print([name,'_runtime_log'],'-depsc','-painters')
+                print([name,'_runtime_log_png'],'-dpng')
+            else
+                print([name,'_runtime'],'-depsc','-painters')
+                print([name,'_runtime_png'],'-dpng')
+            end
+            
+            %saveas(gcf,'test.eps','psc2')
     end
     iter = iter + 1;
 end
 
 temp = (phi_S + eye(N*Nr));
 filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
+if mode.log
+    save([name,'_MM_data_log.mat'],'fig1','fig2','s','sinr','iter','time');
+else
+    save([name,'_MM_data.mat'],'fig1','fig2','s','sinr','iter','time');
+end
+clc;clear;
+end
 
 
