@@ -1,12 +1,14 @@
-function CCM(mode)
+function s = CCM(mode)
 t0 = cputime;
 Nt = 10;
 Nr = 10;
 N = 8;
 K = 3;
-sigma_0 = 1;
-sigma_k = [0.5,0.2,0.3];
-sigma_v = 0.001;
+sigma_0 = 100;
+%sigma_k = [0.5,0.2,0.3];
+sigma_k = [100,100,100];
+sigma_v = 1;
+%sigma_v = 0.8;
 q = sigma_k / sigma_v;
 rk = [0,1,2];
 r0 = 0;
@@ -224,7 +226,7 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
     %func(iter) = f;
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
-
+if mode.visualization
     if iter == end_iter || iterDiff <= epsilon
         
         if evaluation == 1
@@ -303,20 +305,24 @@ while (iterDiff>epsilon) && (iter <= (end_iter))
             end
             
         end
+        if mode.log
+            save([name,'_CCM_data_log.mat'],'s','sinr','iter','time');
+        else
+            save([name,'_CCM_data.mat'],'s','sinr','iter','time');
+        end
         %xlabel('CPU time(s)');
 
 %         figure(2)
 %         plot(time(1:iter-1),func(1:iter-1));
     end
+end
     iter = iter + 1;
 end
 
 temp = (phi_S + eye(N*Nr));
 filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
-if mode.log
-    save([name,'_CCM_data_log.mat'],'s','sinr','iter','time');
-else
-    save([name,'_CCM_data.mat'],'s','sinr','iter','time');
+
+if mode.clc
+    clc;clear;
 end
-clc;clear;
 end

@@ -1,21 +1,23 @@
-function MIA(mode)
+function s = MIA(mode)
+%% initial parameter
 t0 = cputime;
 Nt = 10;
 Nr = 10;
 N = 8;
 K = 3;
-sigma_0 = 1;
-sigma_k = [0.5,0.2,0.3];
-sigma_v = 0.001;
+sigma_0 = 100;
+%sigma_k = [0.5,0.2,0.3];
+sigma_k = [100,100,100];
+sigma_v = 1;
 q = sigma_k / sigma_v;
 rk = [0,1,2];
 r0 = 0;
 theta0 = 15;
 theta = [-50,-10,40];
 s_init = zeros(Nt,N);
-SimiCon = false;
-PAR = false;
-e_Uncertain = false;
+% SimiCon = false;
+% PAR = false;
+% e_Uncertain = false;
 proj.SimiCon.value = mode.SimiCon;
 proj.PAR.value = mode.PAR;
 proj.e.value = mode.e;
@@ -71,6 +73,8 @@ len_s = N*Nt;
 change = 10;
 epsilon = 1e-4;
 iter = 1;
+
+%% main iteration
 while change > epsilon && iter <= (end_iter)
     if acceleration
         acc_s = s;
@@ -145,6 +149,9 @@ while change > epsilon && iter <= (end_iter)
     filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
     sinr(iter) = SINR(filter,A0,Ak,theta,N,Nr,K,s,sigma_0,sigma_k,sigma_v);
     time(iter) = cputime - t0;
+    
+    %% visualization
+ if mode.visualization 
     if iter == end_iter || change <= epsilon
             figure(1)
             hold on
@@ -223,20 +230,25 @@ while change > epsilon && iter <= (end_iter)
                 print([name,'_runtime'],'-depsc','-painters')
                 print([name,'_runtime_png'],'-dpng')
             end
+            if mode.log
+                save([name,'_MM_data_log.mat'],'fig1','fig2','s','sinr','iter','time');
+            else
+                save([name,'_MM_data.mat'],'fig1','fig2','s','sinr','iter','time');
+            end
             
             %saveas(gcf,'test.eps','psc2')
     end
+end
     iter = iter + 1;
 end
 
 temp = (phi_S + eye(N*Nr));
 filter = (temp \ A0 * s)/(s'*A0'*temp*A0*s);
-if mode.log
-    save([name,'_MM_data_log.mat'],'fig1','fig2','s','sinr','iter','time');
-else
-    save([name,'_MM_data.mat'],'fig1','fig2','s','sinr','iter','time');
+
+
+if mode.clc
+    clc;clear;
 end
-clc;clear;
 end
 
 

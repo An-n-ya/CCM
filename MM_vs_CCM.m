@@ -1,4 +1,6 @@
 mode.log = true;
+mode.clc = true;
+mode.visualization = true;
 for i = 1:4
     mode.SimiCon = i == 2;
     mode.PAR = i == 3;
@@ -8,6 +10,5 @@ for i = 1:4
         mode.acceleration = j == 1;
         CCM(mode);
         MIA(mode);
-
     end
 end
